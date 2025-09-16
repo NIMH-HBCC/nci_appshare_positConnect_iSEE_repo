@@ -1,42 +1,33 @@
 ###################################################################
 #BiocManager::install("iSEE")
 library(iSEE); 
-# library(iSEEu); 
-# library(SingleCellExperiment); 
-# library(ggplot2)
+library(ggplot2)
 #library("SingleCellExperiment") # dont need them as "iSEE" have these all
 #library("shiny") # dont need them as "iSEE" have these all
 ###########################################
 ### Fetch the data from FigShare/ MendeleyData
 
-#To retrieve an option
-#getOption('timeout')
-#To set an option
+# To retrieve an option
+# getOption('timeout')
+# To set an option
 options(timeout=600)
-# FigShare:
-# DietSeura Object
-#dat <- ("https://figshare.com/ndownloader/files/39246662/sce_dlpfc_sgacc_final.RDS")
-# regular latest Seurat object
+# Download the data from FigShare:
 dat <- ("https://figshare.com/ndownloader/files/39305303/sce_dlpfc_sgacc_final.RDS")
 download.file(dat, destfile = "sce_dlpfc_sgacc_final.RDS")
 sce_small <- readRDS("sce_dlpfc_sgacc_final.RDS")
-# Dummy data
-# sce <- SingleCellExperiment(list(counts = matrix(rpois(100, 5), nrow = 10)))
+# Read tour file
 tour <- read.delim("tour.txt", sep=";", stringsAsFactors = FALSE, row.names = NULL)
-# FigShare:
-#dat <- ("https://figshare.com/ndownloader/files/39307748/sce_dlpfc_sgacc_final_DietSuerat_v1.RDS")
-#download.file(dat, destfile = "sce_dlpfc_sgacc_final_DietSuerat_v1.RDS")
-#sce_small <- readRDS("sce_dlpfc_sgacc_final_DietSuerat_v1.RDS")
 
 # ################################################
-# Specify number of colurs for each cell type
+# Specify number of colors for each cell type
 library(RColorBrewer)
 n <- 47
 qual_col_pals = brewer.pal.info[brewer.pal.info$category == 'qual',]
 col_vector = unlist(mapply(brewer.pal, qual_col_pals$maxcolors, rownames(qual_col_pals)))
 col_vector <- sample(col_vector, n)
 names(col_vector) <- as.vector(unique(sce_small$celltype))
-# ################################################
+#################################################
+# Create list of all the panels by starting with an empty list
 initial <- list()
 ############################################################################################
 # Custom dummy plot as banner 1
@@ -53,13 +44,13 @@ BannerPanel <- iSEE::createCustomPlot(
   className = "BannerPanel",
   fullName  = "Demo build"
 )
-
-#initial[["BannerPanel"]] <- new("BannerPanel", text = "HBCC sgACC–DLPFC snRNA-seq — Demo build", PanelId = NULL, PanelWidth = 12L, PanelHeight = 400L)
-BannerPanel <- new("BannerPanel", text = "HBCC sgACC–DLPFC snRNA-seq — Demo build", PanelId = NULL, PanelWidth = 12L, PanelHeight = 400L)
+# Create a new class object for new panel
+BannerPanel <- new("BannerPanel", text = "Demo build", PanelId = NULL, PanelWidth = 12L, PanelHeight = 400L)
 
 ############################################################################################
-# Custom dummy plot as banner 1
+# Custom plot as banner 1
 ############################################################################################
+# Set variables
 title = "Human Brain Collection Core (HBCC) Data Portal"
 subtitle = "Single nucleus RNA seq data from sgACC–DLPFC of Controls"
 width_px = 1200
@@ -72,14 +63,13 @@ logo_path =  "nimh-logo.png"      # optional: path to a PNG logo
 logo_width = 0.36     # proportion of width
 img <- png::readPNG(logo_path)
 grob <- grid::rasterGrob(img, interpolate = TRUE)
-
 x_max <- 1 
 x_min <- 0 - 0.7
 y_max <- 1 
 y_min <- y_max - 0.2
 
 # Create a function to use with custom plot
-BANNER_FUN2 <- function(se, rows, columns, text = "Welcome — read the tips in the tour!") {
+newBANNER_FUN <- function(se, rows, columns, text = "Welcome — read the tips in the tour!") {
   ggplot() +
     # background
     annotate("rect", xmin = 0, xmax = 0.5, ymin = 0, ymax = 0.5, fill = bg, color = NA) +
@@ -94,24 +84,23 @@ BANNER_FUN2 <- function(se, rows, columns, text = "Welcome — read the tips in 
 }
 
 BannerPanel2 <- iSEE::createCustomPlot(
-  FUN       = BANNER_FUN2,
+  FUN       = newBANNER_FUN,
   restrict  = NULL,
-  className = "BannerPanel2",
+  className = "newBannerPanel",
   fullName  = " "#"National Institutes of Health (NIH)"
 )
 
 # Subclass one panel type (e.g., ReducedDimensionPlot) and hide its Data box
-setClass("BannerPanel", contains = "BannerPanel2")
+setClass("BannerPanel", contains = "newBannerPanel")
 
-setMethod(".hideInterface", "BannerPanel2",
+setMethod(".hideInterface", "newBannerPanel",
           function(x, field) {
             if (field == "DataBoxOpen" | field == "SelectionBoxOpen") return(TRUE)  # hide the whole Data parameters box
             callNextMethod()
           }
 )
 
-
-initial[["BannerPanel2"]] <- new("BannerPanel2", PanelWidth = 12L, PanelHeight = 400L, PanelId = NULL)
+initial[["newBannerPanel"]] <- new("newBannerPanel", PanelWidth = 12L, PanelHeight = 400L, PanelId = NULL)
 
 ################################################################################
 # Settings for Reduced dimension plot 1
@@ -256,8 +245,5 @@ iSEE(
 
 ############################################################################
 
-
-
-# iSEE(sce, initial = initial, appTitle = "An official website of the United States government")
 
 
