@@ -1,24 +1,35 @@
 ###################################################################
-#BiocManager::install("iSEE")
 library(iSEE); 
 library(ggplot2)
+library(memoise)
+library(htmltools)
+library(base64enc)
+
 #library("SingleCellExperiment") # dont need them as "iSEE" have these all
 #library("shiny") # dont need them as "iSEE" have these all
 ###########################################
 ### Fetch the data from FigShare/ MendeleyData
-
+# Download the data from FigShare:
+# dat <- ("https://figshare.com/ndownloader/files/39305303/sce_dlpfc_sgacc_final.RDS")
+# download.file(dat, destfile = "sce_dlpfc_sgacc_final.RDS")
+# ##################################################################
 # To retrieve an option
 # getOption('timeout')
 # To set an option
 options(timeout=600)
-# Download the data from FigShare:
-dat <- ("https://figshare.com/ndownloader/files/39305303/sce_dlpfc_sgacc_final.RDS")
-download.file(dat, destfile = "sce_dlpfc_sgacc_final.RDS")
-sce_small <- readRDS("sce_dlpfc_sgacc_final.RDS")
+# ##################################################################
+# 1) Memoised loader for your SCE
+get_sce <- memoise(function() {
+  # OR read input from local 
+  sce <- readRDS("sce_dlpfc_sgacc_final.RDS")
+  sce
+})
+# 2) Use the cached SCE to build the app
+sce_small <- get_sce()
+# ##################################################################
 # Read tour file
 tour <- read.delim("tour.txt", sep=";", stringsAsFactors = FALSE, row.names = NULL)
-
-# ################################################
+# ##################################################################
 # Specify number of colors for each cell type
 library(RColorBrewer)
 n <- 47
@@ -26,82 +37,91 @@ qual_col_pals = brewer.pal.info[brewer.pal.info$category == 'qual',]
 col_vector = unlist(mapply(brewer.pal, qual_col_pals$maxcolors, rownames(qual_col_pals)))
 col_vector <- sample(col_vector, n)
 names(col_vector) <- as.vector(unique(sce_small$celltype))
-#################################################
+###################################################################
+
+###################################################################
 # Create list of all the panels by starting with an empty list
 initial <- list()
 ############################################################################################
-# Custom dummy plot as banner 1
-############################################################################################
-BANNER_FUN <- function(se, rows, columns, text = "Welcome — read the tips in the tour!") {
-  ggplot() + theme_void() +
-    annotate("text", x = 0.5, y = 0.5, label = text, size = 6, fontface = 2) +
-    labs(title = "LAbs title ") +
-    theme(plot.margin = margin(6, 6, 6, 6))
-}
-BannerPanel <- iSEE::createCustomPlot(
-  FUN       = BANNER_FUN,
-  restrict  = NULL,
-  className = "BannerPanel",
-  fullName  = "Demo build"
-)
-# Create a new class object for new panel
-BannerPanel <- new("BannerPanel", text = "Demo build", PanelId = NULL, PanelWidth = 12L, PanelHeight = 400L)
-
-############################################################################################
-# Custom plot as banner 1
+# Custom plot for title
 ############################################################################################
 # Set variables
-title = "Human Brain Collection Core (HBCC) Data Portal"
-subtitle = "Single nucleus RNA seq data from sgACC–DLPFC of Controls"
-width_px = 1200
-height_px = 300
-bg = "white"        # slate-900
-fg = "royalblue4"        # slate-200
-accent = "royalblue4"    # sky-400
-accent_width = 0.03  # proportion of width
-logo_path =  "nimh-logo.png"      # optional: path to a PNG logo
-logo_width = 0.36     # proportion of width
-img <- png::readPNG(logo_path)
-grob <- grid::rasterGrob(img, interpolate = TRUE)
-x_max <- 1 
-x_min <- 0 - 0.7
-y_max <- 1 
-y_min <- y_max - 0.2
-
+logo_path_t =  "nimh-logo.png"      # optional: path to a PNG logo
+img_t <- png::readPNG("nimh-logo.png")
+grob_t <- grid::rasterGrob(img_t, interpolate = TRUE)
 # Create a function to use with custom plot
-newBANNER_FUN <- function(se, rows, columns, text = "Welcome — read the tips in the tour!") {
+TITLE_FUN <- function(se, rows, columns, text = "Welcome — read the tips in the tour!") {
   ggplot() +
-    # background
-    annotate("rect", xmin = 0, xmax = 0.5, ymin = 0, ymax = 0.5, fill = bg, color = NA) +
-    # accent bar on the left
-    annotate("rect", xmin = 0, xmax = accent_width, ymin = 0, ymax = 1, fill = accent, color = NA) +
-    # title
-    annotate("text", x = accent_width + 0.03, y = 0.68, label = title, hjust = 0, vjust = 1, size = 20, color = fg, fontface = "bold") +
-    # subtitle (optional)
-    annotate("text", x = accent_width + 0.03, y = 0.38, label = subtitle, hjust = 0, vjust = 1, size = 10, color = fg) +
-    coord_cartesian(xlim = c(0,1), ylim = c(0,1), expand = FALSE) +
-    theme_void() + annotation_custom(grob, xmin = x_min, xmax = x_max, ymin = y_min, ymax = y_max)
+    # background bar
+    geom_rect(aes(xmin = 0, xmax = 50, ymin = 0, ymax = 10),
+              fill = "white", color = NA) +
+    # Full-width bordered box for the title
+    geom_rect(aes(xmin = -50, xmax = 50, ymin = 0.1, ymax = 0.5),
+              fill = "white", color = "royalblue4", linewidth = 1) +
+    # Left block - adjusted x position to make room for logo
+    annotate("text", x = -0.03, y = 0.3, label = "Human Brain Collection Core Data Portal At NIMH",
+             hjust = 0, color = "royalblue4", fontface = "bold", size = 22) +
+    # # Left lower text
+    # annotate("text", x = 0, y = 0.0, label = "Study: Single nucleus RNA seq data from sgACC–DLPFC of Controls",
+    #          hjust = 0, color = "royalblue4", size = 12) +
+    coord_cartesian(xlim = c(0,1), ylim = c(0,1), expand = TRUE) +
+    # Add the logo grob at LEFT edge - adjusted coordinates
+    theme_void() + 
+    annotation_custom(grob_t, xmin = -0.1, xmax = 0.3, ymin = 0.6, ymax = 1)
 }
 
-BannerPanel2 <- iSEE::createCustomPlot(
-  FUN       = newBANNER_FUN,
+TitlePanel <- iSEE::createCustomPlot(
+  FUN       = TITLE_FUN,
   restrict  = NULL,
-  className = "newBannerPanel",
-  fullName  = " "#"National Institutes of Health (NIH)"
+  className = "TitlePanel",
+  fullName  = "iSEE App ID = HBCC"
 )
 
 # Subclass one panel type (e.g., ReducedDimensionPlot) and hide its Data box
-setClass("BannerPanel", contains = "newBannerPanel")
+setClass("Title", contains = "TitlePanel")
 
-setMethod(".hideInterface", "newBannerPanel",
+setMethod(".hideInterface", "TitlePanel",
           function(x, field) {
             if (field == "DataBoxOpen" | field == "SelectionBoxOpen") return(TRUE)  # hide the whole Data parameters box
             callNextMethod()
           }
 )
 
-initial[["newBannerPanel"]] <- new("newBannerPanel", PanelWidth = 12L, PanelHeight = 400L, PanelId = NULL)
+# Add custom output method to include hyperlink below the plot
+setMethod(".defineOutput", "TitlePanel", function(x) {
+  plot_name <- .getEncodedName(x)
+  tagList(
+    plotOutput(plot_name, height = "300px"),  # Changed from fixed 400px to auto
+    tags$div(
+      style = "padding: 10px; text-align: left; padding-left: 20px; font-size: 30px; color: royalblue4",
+      tags$span(
+        tags$strong("Study Name:"),  # Bold PMID text
+        " ",
+        tags$a(
+          href = "https://pubmed.ncbi.nlm.nih.gov/37037607/",
+          target = "_blank",
+          "Cellular Diversity in Human Subgenual Anterior Cingulate and Dorsolateral Prefrontal Cortex by Single-Nucleus RNA-Sequencing",
+          style = "color: royalblue4; font-size: 28px; text-decoration: underline;"
+        )
+      )
+    ),
+    tags$div(
+      style = "padding: 10px; text-align: left; padding-left: 20px; font-size: 30px; color: royalblue4",
+      tags$span(
+        tags$strong("PMID:"),  # Bold PMID text
+        " ",
+        tags$a(
+          href = "https://pubmed.ncbi.nlm.nih.gov/37037607/",
+          target = "_blank",
+          "37037607",
+          style = "color: royalblue4; font-size: 28px; text-decoration: underline;"
+        )
+      )
+    )
+  )
+})
 
+initial[["TitlePanel"]] <- new("TitlePanel", PanelWidth = 12L, PanelHeight = 400L, PanelId = 1L)
 ################################################################################
 # Settings for Reduced dimension plot 1
 ################################################################################
@@ -226,24 +246,148 @@ initial[["RowDataTable1"]] <- new("RowDataTable", Selected = "SNAP25", Search = 
                                   ColumnSelectionDynamicSource = FALSE, RowSelectionRestrict = FALSE,
                                   ColumnSelectionRestrict = FALSE, SelectionHistory = list())
 
+############################################################################################
+# Custom plot for FOOTER
+############################################################################################
+# Create a function to use with custom plot
+FOOTER_FUN <- function(se, rows, columns, text = "Welcome — read the tips in the tour!") {
+  # Canvas size in arbitrary units
+  # We'll treat x in [0, 100], y in [0, 10]
+  ggplot() +
+    # background bar
+    geom_rect(aes(xmin = 0, xmax = 130, ymin = 0, ymax = 10),
+              fill = "#0B3D5B", color = NA) +
+    
+    # Left block
+    annotate("text", x = 1, y = 8.5, label = "National Institute of Mental Health",
+             hjust = 0, color = "white", fontface = "bold", size = 10) +
+    annotate("text", x = 1, y = 7, label = "at the National Institutes of Health",
+             hjust = 0, color = "white", size = 7) +
+    # Right block (top-right)
+    annotate("text", x = 99, y = 8.5, label = "Contact Us",
+             hjust = 1, color = "white", fontface = "bold", size = 10) +
+    
+    # Right block (links row)
+    annotate("text", x = 99, y = 7, label = "nimhinfo@nih.gov",
+             hjust = 1, color = "white", size = 7) +
+    
+    # Right block (bottom-right small line)
+    annotate("text", x = 99, y = 5.5,
+             label = "U.S. Department of Health and Human Services",
+             hjust = 1, color = "white", size = 7) +
+    annotate("text", x = 99, y = 4.5,
+             label = "National Institutes of Health",
+             hjust = 1, color = "white", size = 7) +
+    annotate("text", x = 99, y = 3.5,
+             label = "National Institutes of Mental Health", 
+             hjust = 1, color = "white", size = 7) +
+    annotate("text", x = 99, y = 2.5,
+             label = "USA.gov",
+             hjust = 1, color = "white", size = 7) +
+    
+    coord_cartesian(xlim = c(0, 100), ylim = c(0, 10), expand = FALSE) +
+    theme_void() +
+    theme(
+      plot.margin = margin(0, 0, 0, 0),
+      panel.background = element_rect(fill = "transparent", color = NA),
+      plot.background  = element_rect(fill = "transparent", color = NA)
+    )
+}
 
-######################################
+FooterPanel <- iSEE::createCustomPlot(
+  FUN       = FOOTER_FUN,
+  restrict  = NULL,
+  className = "FooterPanel",
+  fullName  = "iSEE App ID = HBCC"
+)
+
+# Subclass one panel type (e.g., ReducedDimensionPlot) and hide its Data box
+setClass("Footer", contains = "FooterPanel")
+setMethod(".hideInterface", "FooterPanel",
+          function(x, field) {
+            if (field == "DataBoxOpen" | field == "SelectionBoxOpen") return(TRUE)  # hide the whole Data parameters box
+            callNextMethod()
+          }
+)
+
+# Encode your images
+socialMedia_base64 <- base64encode("socialMedia_1.png")
+
+setMethod(".defineOutput", "FooterPanel", function(x) {
+  plot_name <- .getEncodedName(x)
+  tagList(
+    plotOutput(plot_name, height = "200px"),
+    tags$div(
+      style = "padding: 1px; text-align: left; padding-left: 10px;",
+      tags$div(
+        # Add "Follow Us" text
+        tags$span(
+          "Follow Us",
+          style = "color: #0B3D5B; font-weight: bold; font-size: 26px; margin-right: 0px; vertical-align: middle;"
+        ),
+        tags$a(
+          href = "https://www.nih.gov/news-events/nih-social-media",
+          target = "_blank",
+          tags$img(
+            src = paste0("data:image/png;base64,", socialMedia_base64), 
+            height = "26px", 
+            alt = "NIH social media icons",
+            style = "background-color: grey;"  # Add background color here
+          )
+        )
+      )
+    )
+  )
+})
+
+### Panel ends  
+initial[["FooterPanel"]] <- new("FooterPanel", PanelWidth = 12L, PanelHeight = 800L, PanelId = 1L)
+################################################################################
+
+################################################################################
+# # Overriding the default colors in the package
+iSEEOptions$set(panel.color=c(FeatureAssayPlot="#3565AA", RowDataPlot="#3565AA", ColumnDataPlot="#3565AA", ComplexHeatmapPlot="#3565AA", RowDataTable="#3565AA", TitlePanel="#3565AA", BannerPanel1 = "white", FooterPanel = "#3565AA"))
 
 sce_small <- registerAppOptions(sce_small, color.maxlevels = 47)
+############################################################################
 
+# Add US flag along with text title
+library(base64enc)
+# Encode your images
+flag_base64 <- base64encode("flag.png")
+logo1_base64 <- base64encode("nimh-logo.png")
+link_title <- "An official website of the United States government"
+
+# Define custom CSS for iSEE app title
+custom_css <- "
+  .main-header .logo {
+    text-align: left;
+    padding-left: 75px; /* Adjust padding as needed */;
+  }
+"
+
+# Run the iSEE wrapper function to launch the app
 iSEE(
   sce_small,
   tour = tour,
-  appTitle = "An official website of the United States government",
+  appTitle = tags$img(
+    height = "50px",
+    tags$img(
+      src = paste0("data:image/png;base64,", flag_base64), 
+      height = "15px", 
+      alt = "USA flag logo"), role = "img",  # Explicit role
+    `aria-label` = "Application logo",  # ARIA label
+    style = "float: left; margin-right: 10px",
+    tags$span(
+      link_title, style = "font-size: 15px; font-weight: regular; font-family: 'Open Sans', sans-serif; color: black"),
+    tags$head(tags$style(HTML(custom_css)))
+  ),
   initial = initial,
   colormap = ExperimentColorMap(colData = list(
-    celltype = function(n) {
-      col_vector[!grepl("drop", names(col_vector))]
-    }
-  ))
+    celltype = function(n) {col_vector[!grepl("drop", names(col_vector))]}))
 )
 
 ############################################################################
-
+############################################################################
 
 
