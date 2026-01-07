@@ -1,23 +1,18 @@
-###################################################################
+# This is a Shiny web application. You can run the application by clicking
+# the 'Run App' button above.
+################################################################################
 library(iSEE); 
 library(ggplot2)
 library(memoise)
 library(htmltools)
 library(base64enc)
-
-#library("SingleCellExperiment") # dont need them as "iSEE" have these all
-#library("shiny") # dont need them as "iSEE" have these all
-###########################################
-### Fetch the data from FigShare/ MendeleyData
-# Download the data from FigShare:
-# dat <- ("https://figshare.com/ndownloader/files/39305303/sce_dlpfc_sgacc_final.RDS")
-# download.file(dat, destfile = "sce_dlpfc_sgacc_final.RDS")
-# ##################################################################
+################################################################################
 # To retrieve an option
 # getOption('timeout')
 # To set an option
 options(timeout=600)
-# ##################################################################
+################################################################################
+# Speed up app launching time by using Memoise with cached SCE
 # 1) Memoised loader for your SCE
 get_sce <- memoise(function() {
   # OR read input from local 
@@ -26,10 +21,10 @@ get_sce <- memoise(function() {
 })
 # 2) Use the cached SCE to build the app
 sce_small <- get_sce()
-# ##################################################################
+################################################################################
 # Read tour file
 tour <- read.delim("tour.txt", sep=";", stringsAsFactors = FALSE, row.names = NULL)
-# ##################################################################
+################################################################################
 # Specify number of colors for each cell type
 library(RColorBrewer)
 n <- 47
@@ -37,13 +32,11 @@ qual_col_pals = brewer.pal.info[brewer.pal.info$category == 'qual',]
 col_vector = unlist(mapply(brewer.pal, qual_col_pals$maxcolors, rownames(qual_col_pals)))
 col_vector <- sample(col_vector, n)
 names(col_vector) <- as.vector(unique(sce_small$celltype))
-###################################################################
-
-###################################################################
+############################################################################################
 # Create list of all the panels by starting with an empty list
 initial <- list()
 ############################################################################################
-# Custom plot for title
+# Create Custom plot for title
 ############################################################################################
 # Set variables
 logo_path_t =  "nimh-logo.png"      # optional: path to a PNG logo
@@ -125,7 +118,6 @@ initial[["TitlePanel"]] <- new("TitlePanel", PanelWidth = 12L, PanelHeight = 400
 ################################################################################
 # Settings for Reduced dimension plot 1
 ################################################################################
-
 initial[["ReducedDimensionPlot1"]] <- new("ReducedDimensionPlot", Type = "TSNE", XAxis = 1L, 
                                           YAxis = 2L, FacetRowByColData = "Barcode", FacetColumnByColData = "Barcode", 
                                           ColorByColumnData = "ID", ColorByFeatureNameAssay = "logcounts", 
@@ -150,13 +142,9 @@ initial[["ReducedDimensionPlot1"]] <- new("ReducedDimensionPlot", Type = "TSNE",
                                           DataBoxOpen = FALSE, RowSelectionDynamicSource = FALSE, ColumnSelectionDynamicSource = FALSE, 
                                           RowSelectionRestrict = FALSE, ColumnSelectionRestrict = TRUE, 
                                           SelectionHistory = list())
-
-
-
 ################################################################################
 # Settings for Feature assay plot 1
 ################################################################################
-
 initial[["FeatureAssayPlot1"]] <- new("FeatureAssayPlot", Assay = "logcounts", XAxis = "Column data",
                                       XAxisColumnData = "broad.class", XAxisFeatureName = "SNAP25",
                                       XAxisFeatureSource = "---", XAxisFeatureDynamicSource = FALSE,
@@ -186,7 +174,6 @@ initial[["FeatureAssayPlot1"]] <- new("FeatureAssayPlot", Assay = "logcounts", X
 ################################################################################
 # Settings for Complex heatmap 1
 ################################################################################
-
 initial[["ComplexHeatmapPlot1"]] <- new("ComplexHeatmapPlot", Assay = "logcounts", CustomRows = TRUE, 
                                         CustomRowsText = "SATB2\nGAD2\nAQP4\nMOG\nMEGF11\nPTPRC\nFLT1", 
                                         ClusterRows = TRUE, ClusterRowsDistance = "spearman", ClusterRowsMethod = "ward.D2", 
@@ -203,11 +190,9 @@ initial[["ComplexHeatmapPlot1"]] <- new("ComplexHeatmapPlot", Assay = "logcounts
                                         RowSelectionDynamicSource = FALSE, ColumnSelectionDynamicSource = FALSE, 
                                         RowSelectionRestrict = FALSE, ColumnSelectionRestrict = FALSE, 
                                         SelectionHistory = list())
-
 ################################################################################
 # Settings for Column data plot 1
 ################################################################################
-
 initial[["ColumnDataPlot1"]] <- new("ColumnDataPlot", XAxis = "Column data", YAxis = "nFeature_RNA", 
                                     XAxisColumnData = "celltype", FacetRowByColData = "sample_ID", 
                                     FacetColumnByColData = "sample_ID", ColorByColumnData = "celltype", 
@@ -231,11 +216,9 @@ initial[["ColumnDataPlot1"]] <- new("ColumnDataPlot", XAxis = "Column data", YAx
                                     DataBoxOpen = FALSE, RowSelectionDynamicSource = FALSE, ColumnSelectionDynamicSource = FALSE, 
                                     RowSelectionRestrict = FALSE, ColumnSelectionRestrict = FALSE, 
                                     SelectionHistory = list())
-
 ################################################################################
 # Settings for Row data table 1
 ################################################################################
-
 initial[["RowDataTable1"]] <- new("RowDataTable", Selected = "SNAP25", Search = "", SearchColumns = c("",
                                                                                                       "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "",
                                                                                                       "", "", "", "", "", "", "", "", "", "", ""), HiddenColumns = character(0),
@@ -245,9 +228,8 @@ initial[["RowDataTable1"]] <- new("RowDataTable", Selected = "SNAP25", Search = 
                                   ColumnSelectionSource = "---", DataBoxOpen = FALSE, RowSelectionDynamicSource = FALSE,
                                   ColumnSelectionDynamicSource = FALSE, RowSelectionRestrict = FALSE,
                                   ColumnSelectionRestrict = FALSE, SelectionHistory = list())
-
 ############################################################################################
-# Custom plot for FOOTER
+# Create Custom plot for FOOTER
 ############################################################################################
 # Create a function to use with custom plot
 FOOTER_FUN <- function(se, rows, columns, text = "Welcome — read the tips in the tour!") {
@@ -257,7 +239,6 @@ FOOTER_FUN <- function(se, rows, columns, text = "Welcome — read the tips in t
     # background bar
     geom_rect(aes(xmin = 0, xmax = 130, ymin = 0, ymax = 10),
               fill = "#0B3D5B", color = NA) +
-    
     # Left block
     annotate("text", x = 1, y = 8.5, label = "National Institute of Mental Health",
              hjust = 0, color = "white", fontface = "bold", size = 10) +
@@ -266,11 +247,9 @@ FOOTER_FUN <- function(se, rows, columns, text = "Welcome — read the tips in t
     # Right block (top-right)
     annotate("text", x = 99, y = 8.5, label = "Contact Us",
              hjust = 1, color = "white", fontface = "bold", size = 10) +
-    
     # Right block (links row)
     annotate("text", x = 99, y = 7, label = "nimhinfo@nih.gov",
              hjust = 1, color = "white", size = 7) +
-    
     # Right block (bottom-right small line)
     annotate("text", x = 99, y = 5.5,
              label = "U.S. Department of Health and Human Services",
@@ -284,7 +263,6 @@ FOOTER_FUN <- function(se, rows, columns, text = "Welcome — read the tips in t
     annotate("text", x = 99, y = 2.5,
              label = "USA.gov",
              hjust = 1, color = "white", size = 7) +
-    
     coord_cartesian(xlim = c(0, 100), ylim = c(0, 10), expand = FALSE) +
     theme_void() +
     theme(
@@ -310,7 +288,7 @@ setMethod(".hideInterface", "FooterPanel",
           }
 )
 
-# Encode your images
+# Encode image into base64 encoding
 socialMedia_base64 <- base64encode("socialMedia_1.png")
 
 setMethod(".defineOutput", "FooterPanel", function(x) {
@@ -345,15 +323,14 @@ initial[["FooterPanel"]] <- new("FooterPanel", PanelWidth = 12L, PanelHeight = 8
 ################################################################################
 
 ################################################################################
-# # Overriding the default colors in the package
+# # Overriding the default panel colors in the package
 iSEEOptions$set(panel.color=c(FeatureAssayPlot="#3565AA", RowDataPlot="#3565AA", ColumnDataPlot="#3565AA", ComplexHeatmapPlot="#3565AA", RowDataTable="#3565AA", TitlePanel="#3565AA", BannerPanel1 = "white", FooterPanel = "#3565AA"))
 
 sce_small <- registerAppOptions(sce_small, color.maxlevels = 47)
-############################################################################
+################################################################################
 
 # Add US flag along with text title
-library(base64enc)
-# Encode your images
+# Encode  images
 flag_base64 <- base64encode("flag.png")
 logo1_base64 <- base64encode("nimh-logo.png")
 link_title <- "An official website of the United States government"
@@ -365,7 +342,7 @@ custom_css <- "
     padding-left: 75px; /* Adjust padding as needed */;
   }
 "
-
+################################################################################
 # Run the iSEE wrapper function to launch the app
 iSEE(
   sce_small,
@@ -387,7 +364,8 @@ iSEE(
     celltype = function(n) {col_vector[!grepl("drop", names(col_vector))]}))
 )
 
-############################################################################
-############################################################################
+################################################################################
+# Code Ends
+################################################################################
 
 
